@@ -4,6 +4,7 @@ import contextlib
 import datetime
 from functools import partial
 from functools import wraps
+import inspect
 import json
 import logging
 from numbers import Number
@@ -1050,6 +1051,11 @@ class CacheRegion:
                     )
                 else:
                     created_value = creator()
+            if inspect.iscoroutinefunction(creator):
+                try:
+                    created_value.send(None)
+                except StopIteration as e:
+                    created_value = e.value
             value = self._value(created_value)
 
             if (
@@ -1098,6 +1104,10 @@ class CacheRegion:
             expiration_time,
             async_creator,
         ) as value:
+            if inspect.iscoroutinefunction(creator):
+                async def coro_func(value):
+                    return value
+                return coro_func(value)
             return value
 
     def get_or_create_multi(
